@@ -1,0 +1,61 @@
+# 1. THE EDGAR MCP SERVER DEPLOYMENT
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edgar-mcp
+  namespace: research-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edgar-mcp
+  template:
+    metadata:
+      labels:
+        app: edgar-mcp
+    spec:
+      containers:
+      - name: mcp-server
+        image: quay.io/jepandit/edgarmcp:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SEC_EDGAR_USER_AGENT
+          value: "ResearchBot (contact@example.com)"
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: edgar-mcp-svc
+  namespace: research-agent-project 
+spec:
+  selector:
+    app: edgar-mcp
+  ports:
+    - protocol: TCP
+      port: 80         # Port accessible to the Agent
+      targetPort: 8080 # Port listening inside the EDGAR container
+  type: ClusterIP
+---
+# 2. THE RESEARCH AGENT (LangGraph)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-agent
+  namespace: research-agent-project
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: research-agent
+  template:
+    metadata:
+      labels:
+        app: research-agent
+    spec:
+      containers:
+      - name: agent
+        image: quay.io/jepandit/langgraph:latest
+        env:
+        - name: EDGAR_MCP_URL
+          value: "http://edgar-mcp-svc.research-agent-project.svc.cluster.local/sse"
